@@ -1,64 +1,111 @@
-#Pushwoosh package for Meteor
+# Pushwoosh Atmosphere Package for Meteor
 
 Pushwoosh is a service that makes it easy to send push notifications to your (mobile) app.
 
-This package allows you to send (server) and receive (app) push notifications.
+This package:
+
+- Allows you to send (server) and receive (app) push notifications.
+- Allows querying by user when creating a notification.
+- Works for iOs and Android devices and includes `cordova-plugin-device` for
+  device detection.
 
 ## Install
 
-> meteor add timbroddin:pushwoosh
+> meteor add lpender:pushwoosh
 
 ## Usage
 
-### Add your Pushwoosh settings to settings file
+### Add your Pushwoosh settings to a `settings.json` file
 
-	{
-  		"pushwoosh": {
-   			"appId": "XXXX-XXXX",
-    		"token": "XXXXXXXXXXX"
-  		}
-	}
-	
-You can request the token in the Pushwoosh admin panel.
+```json
+{
+  "public" : {
+    "pushwoosh" : {
+      "appId": "XXXXX-XXXXX",
+      "google": {
+        "project_number": "123456"
+      }
+    }
+  },
+  "pushwoosh": {
+    "token": "sample_pushwoosh_token"
+  }
+}
+```
 
-## Client (Cordova)
+And start your app using `meteor --settings settings.json`.
 
->   Pushwoosh.initPushwoosh(appId);
+You can request the "token" in the Pushwoosh admin panel.
 
-(replace appId with your appId)
+### Add this to your `mobile-config.js` file
 
-I put this in an iron-router onBeforeAction call:
+```
+App.accessRule('*');
+```
 
-    Router.onBeforeAction(function() {
-    	Pushwoosh.initPushwoosh('XXXX-XXXX');
-    	this.next();
+You may also need to add the `cordova-whitelist` plugin.
+
+
+### initPushwoosh
+
+In a file that is run in mobile/cordova contexts, run the following code:
+
+    Meteor.startup(function(){
+      Pushwoosh.initPushwoosh();
     });
-    
-There's no need to wrap this in an `if(Meteor.isCordova)` call, this method does nothing when called in the browser.
 
-## Server
+### Send a push notification:
 
-To send a push notification call:
+    if (Meteor.isServer) {
+      Pushwoosh.createMessage({
+        "query": { _id: Meteor.userId() },
+        "send_date": "now",
+        "ignore_user_timezone": true,
+        "content": "Your message"
+      });
+    }
 
-    Pushwoosh.createMessage({
-      "send_date": "now",
-      "ignore_user_timezone": true,
-      "content": "Your message"
-    });
-    
-When called client-side this method does nothing.
+You can pass this method an array of objects, if you'd like to send more than
+one message.
 
-There are a lot of extra parameters available. You can check them [here](https://www.pushwoosh.com/programming-push-notification/pushwoosh-push-notification-remote-api/).
+[createMessage API](https://www.pushwoosh.com/programming-push-notification/pushwoosh-push-notification-remote-api/).
 
-You can pass this method an array if you'd like to send more than one message.
+## Handling notifications in-app
 
+Push notifications do not usually appear while the app is in-use.
+
+However, there are JavaScript events that you can listen for, to handle
+this scenario:
+
+    if (Meteor.isClient) {
+      Meteor.startup(function(){
+        document.addEventListener('push-notification', function(event){
+          if (device.platform === "iOS") {
+            //get the notification payload
+            var notification = event.notification;
+
+            //display alert to the user for example
+            alert(notification.aps.alert);
+          } else if (device.platform === "Android") {
+            var title = event.notification.title;
+            var userData = event.notification.userdata;
+
+            if(typeof(userData) != "undefined") {
+              console.warn('user data: ' + JSON.stringify(userData));
+            }
+
+            alert(title);
+          }
+        });
+      });
+    }
+
+[Cordova Pushwoosh API](http://docs.pushwoosh.com/docs/cordova-phonegap).
+
+## Notes
+
+Please be sure to use the sandbox key for development.
 
 ## Todo
 
-Implement other calls.
-
-
-
-
-
-
+Testing.

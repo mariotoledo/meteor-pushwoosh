@@ -1,45 +1,72 @@
-Pushwoosh = {};
+(function (root) {
+  Pushwoosh = {};
 
-Pushwoosh.initPushwoosh = function(appId) {
-  var pushNotification = window.plugins.pushNotification;
+  Pushwoosh.initPushwoosh = function() {
+    this.pushNotification =
+      cordova.require("pushwoosh-cordova-plugin.PushNotification");
 
-  //set push notification callback before we initialize the plugin
-  document.addEventListener('push-notification', function(event) {
-    //get the notification payload
-    var notification = event.notification;
-
-    //clear the app badge
-    pushNotification.setApplicationIconBadgeNumber(0);
-  });
-
-  //initialize the plugin
-  pushNotification.onDeviceReady({pw_appid:appId });
-
-  //register for pushes
-  pushNotification.registerDevice(
-    function(status) {
-      var deviceToken = status['deviceToken'];
-      console.warn('registerDevice: ' + deviceToken);
-    },
-    function(status) {
-      console.warn('failed to register : ' + JSON.stringify(status));
-      alert(JSON.stringify(['failed to register ', status]));
+    if (device.platform === "Android") {
+      this._initAndroid();
+    } else if (device.platform === "iOS") {
+      this._initIOs();
     }
-  );
 
-  //reset badges on app start
-  pushNotification.setApplicationIconBadgeNumber(0);
+    //reset badges on app start
+    this.pushNotification.setApplicationIconBadgeNumber(0);
+  }
 
-}
+  // This will trigger all pending push notifications on start.
+  Pushwoosh._initAndroid = function() {
+    var _this = this;
 
-Pushwoosh.createMessage = function(notification) {
-  throw new Meteor.Error('302', 'Only supported on server');
-}
+    this.pushNotification.onDeviceReady({
+      projectid: Meteor.settings.public.pushwoosh.google.project_number,
+      pw_appid : Meteor.settings.public.pushwoosh.appId
+    });
 
+    //register for pushes
+    this.pushNotification.registerDevice(
+      function(status) { _this._register(status.pushToken) },
+      _this._registerFail
+    );
+  }
 
-Pushwoosh.unregisterDevice = function(notification) { 
-  this.pushNotification.unregisterDevice(function (data) { 
-  }, function (error) { 
-    console.error('failed to unregister : ' + JSON.stringify(error)); 
-  }); 
-}
+  // This will trigger all pending push notifications on start.
+  Pushwoosh._initIOs = function() {
+    var _this = this;
+
+    this.pushNotification.onDeviceReady({
+      pw_appid: Meteor.settings.public.pushwoosh.appId
+    });
+
+    //register for pushes
+    this.pushNotification.registerDevice(
+      function(status) { _this._register(status.pushToken)},
+      _this._registerFail
+    );
+  }
+
+  Pushwoosh._register = function(token) {
+    console.log('calling registertoken')
+    Tracker.autorun(function() {
+      Meteor.call('registerToken', token, Meteor.userId())
+    });
+  };
+
+  Pushwoosh._registerFail = function(status) {
+    console.error('failed to register : ' + JSON.stringify(status));
+  };
+
+  Pushwoosh.createMessage = function(notification) {
+    throw new Meteor.Error('302', 'Only supported on server');
+  }
+
+  Pushwoosh.unregisterDevice = function(notification) { 
+    this.pushNotification.unregisterDevice(function (data) { 
+    }, function (error) { 
+      console.error('failed to unregister : ' + JSON.stringify(error)); 
+    }); 
+  }
+
+  root.Pushwoosh = Pushwoosh;
+})(this)
