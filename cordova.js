@@ -35,3 +35,11 @@ Pushwoosh.initPushwoosh = function(appId) {
 Pushwoosh.createMessage = function(notification) {
   throw new Meteor.Error('302', 'Only supported on server');
 }
+
+
+Pushwoosh.unregisterDevice = function(notification) { 
+  this.pushNotification.unregisterDevice(function (data) { 
+  }, function (error) { 
+    console.error('failed to unregister : ' + JSON.stringify(error)); 
+  }); 
+}
